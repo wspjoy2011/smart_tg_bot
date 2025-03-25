@@ -4,10 +4,10 @@ from pathlib import Path
 
 class DatabaseInitializer:
     def __init__(self, db_path: Path):
-        self.db_path = db_path
+        self._db_path = db_path
 
     def create_tables(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self._db_path) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""

@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from bot.keyboards import get_main_menu_button
 from bot.message_sender import send_html_message, send_image_bytes, show_menu
 from bot.resource_loader import load_message, load_image, load_menu, load_prompt
+from db.repository import GptSessionRepository
 from services import OpenAIClient
 
 
@@ -37,6 +38,7 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     image_bytes = await load_image("random")
 
     openai_client: OpenAIClient = context.bot_data["openai_client"]
+    session_repository: GptSessionRepository = context.bot_data["session_repository"]
 
     reply = await openai_client.ask(
         user_message="Give me a random interesting technical fact.",
