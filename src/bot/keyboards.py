@@ -1,7 +1,8 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def get_main_menu_button() -> InlineKeyboardMarkup:
+def get_menu_buttons(buttons: dict[str, str]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Main Menu", callback_data="start")]
+        [InlineKeyboardButton(text=label, callback_data=command)]
+        for command, label in buttons.items()
     ])

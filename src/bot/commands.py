@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.keyboards import get_main_menu_button
+from bot.keyboards import get_menu_buttons
 from bot.message_sender import send_html_message, send_image_bytes, show_menu
 from bot.resource_loader import load_message, load_image, load_menu
 from db.enums import SessionMode, MessageRole
@@ -37,6 +37,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     intro = await load_message("random")
     image_bytes = await load_image("random")
+    menu_commands = await load_menu("random")
 
     openai_client: OpenAIClient = context.bot_data["openai_client"]
     thread_repository: GptThreadRepository = context.bot_data["thread_repository"]
@@ -56,6 +57,7 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await thread_repository.add_message(thread_id, role=MessageRole.USER.value, content=user_message)
 
     assistant_id = config.ai_assistant_random_facts_id
+
     reply = await openai_client.ask(
         assistant_id=assistant_id,
         thread_id=thread_id,
@@ -81,5 +83,5 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Use the button below to return to the main menu:",
-        reply_markup=get_main_menu_button()
+        reply_markup=get_menu_buttons(menu_commands)
     )

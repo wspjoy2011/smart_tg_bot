@@ -1,3 +1,5 @@
+import asyncio
+
 from openai import AsyncOpenAI, OpenAIError
 from openai.types.beta import Thread
 
@@ -37,29 +39,55 @@ class OpenAIClient:
             logger.error(f"OpenAI Error (delete_thread): {e}")
             return False
 
-    async def ask(self, assistant_id: str, thread_id: str, user_message: str) -> str:
+    async def ask(self, assistant_id: str, thread_id: str, user_message: str, max_retries: int = 3) -> str:
         try:
+            runs = await self._client.beta.threads.runs.list(thread_id=thread_id, limit=1)
+            latest_run = runs.data[0] if runs.data else None
+
+            if latest_run and latest_run.status in ["queued", "in_progress"]:
+                logger.info(f"Waiting for previous run {latest_run.id} to complete...")
+                while latest_run.status in ["queued", "in_progress"]:
+                    await asyncio.sleep(1)
+                    latest_run = await self._client.beta.threads.runs.retrieve(
+                        thread_id=thread_id,
+                        run_id=latest_run.id
+                    )
+                if latest_run.status == "failed":
+                    raise OpenAIError(f"Previous run failed: {latest_run.last_error}")
+
             await self._client.beta.threads.messages.create(
                 thread_id=thread_id,
                 role="user",
                 content=user_message
             )
 
-            run = await self._client.beta.threads.runs.create(
-                thread_id=thread_id,
-                assistant_id=assistant_id,
-                model=self._model,
-                temperature=self._temperature
-            )
-
-            while run.status in ["queued", "in_progress"]:
-                run = await self._client.beta.threads.runs.retrieve(
+            for attempt in range(1, max_retries + 1):
+                run = await self._client.beta.threads.runs.create(
                     thread_id=thread_id,
-                    run_id=run.id
+                    assistant_id=assistant_id,
+                    model=self._model,
+                    temperature=self._temperature
                 )
 
-            if run.status == "failed":
-                raise OpenAIError(f"Run failed: {run.last_error}")
+                while run.status in ["queued", "in_progress"]:
+                    await asyncio.sleep(1)
+                    run = await self._client.beta.threads.runs.retrieve(
+                        thread_id=thread_id,
+                        run_id=run.id
+                    )
+
+                if run.status == "completed":
+                    break
+
+                if run.status == "failed":
+                    error_code = getattr(run.last_error, "code", "")
+                    error_msg = getattr(run.last_error, "message", "")
+                    logger.warning(f"Run attempt {attempt} failed: {error_code} - {error_msg}")
+
+                    if error_code == "server_error" and attempt < max_retries:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+                    raise OpenAIError(f"Run failed: {run.last_error}")
 
             messages = await self._client.beta.threads.messages.list(thread_id=thread_id)
             for message in messages.data:

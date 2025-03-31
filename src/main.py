@@ -31,7 +31,9 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("random", random))
+
     app.add_handler(CallbackQueryHandler(start, pattern="^start$"))
+    app.add_handler(CallbackQueryHandler(random, pattern="^random$"))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
