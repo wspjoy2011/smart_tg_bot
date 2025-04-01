@@ -5,7 +5,8 @@ from telegram.ext import (
     CallbackQueryHandler, MessageHandler, filters
 )
 
-from bot.commands import start, random, gpt, gpt_message_handler
+from bot.commands import start, random, gpt
+from bot.handlers.gpt_handler import gpt_message_handler
 from db.initializer import DatabaseInitializer
 from db.repository import GptThreadRepository
 from services import OpenAIClient
