@@ -2,10 +2,10 @@ from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    CallbackQueryHandler
+    CallbackQueryHandler, MessageHandler, filters
 )
 
-from bot.commands import start, random
+from bot.commands import start, random, gpt, gpt_message_handler
 from db.initializer import DatabaseInitializer
 from db.repository import GptThreadRepository
 from services import OpenAIClient
@@ -31,6 +31,9 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("random", random))
+    app.add_handler(CommandHandler("gpt", gpt))
+
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), gpt_message_handler))
 
     app.add_handler(CallbackQueryHandler(start, pattern="^start$"))
     app.add_handler(CallbackQueryHandler(random, pattern="^random$"))
