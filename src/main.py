@@ -14,6 +14,28 @@ from settings.config import config
 
 
 def main():
+    """
+    Starts the Telegram bot application.
+
+    This function initializes the local SQLite database, sets up the OpenAI client,
+    registers command and message handlers for the Telegram bot, and starts polling updates.
+
+    Handlers:
+       - /start: Initializes the bot interface.
+       - /random: Triggers the assistant to return a random technical fact.
+       - /gpt: Enables short-response GPT assistant mode.
+       - MessageHandler: Handles free-form text input when in GPT mode.
+       - CallbackQueryHandler: Supports menu button interactions for "start" and "random".
+
+    Environment:
+       Requires the following values from the config:
+           - OpenAI API key and model settings
+           - Telegram bot token
+           - Path to SQLite database
+
+    Raises:
+       RuntimeError: If bot fails to start due to misconfiguration or API error.
+    """
     db_initializer = DatabaseInitializer(config.path_to_db)
     db_initializer.create_tables()
 

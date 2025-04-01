@@ -9,10 +9,39 @@ logger = get_logger(__name__)
 
 
 class GptThreadRepository:
+    """
+    Repository for managing GPT threads and message history in SQLite.
+
+    This class handles thread lookup/creation and stores all messages exchanged
+    between the user and assistant in an OpenAI thread.
+
+    Attributes:
+        _db_path (Path): Path to the SQLite database.
+    """
+
     def __init__(self, db_path: Path):
+        """
+        Initializes the repository with the given database path.
+
+        Args:
+            db_path (Path): Path to the SQLite database.
+        """
         self._db_path = db_path
 
     async def get_thread_id(self, tg_user_id: int, mode: str) -> Optional[str]:
+        """
+        Returns the OpenAI thread ID for a user and mode, if it exists.
+
+        Args:
+            tg_user_id (int): Telegram user ID.
+            mode (str): Chat mode (e.g. "gpt", "random").
+
+        Returns:
+            Optional[str]: The OpenAI thread ID if found, else None.
+
+        Raises:
+            aiosqlite.Error: If a database error occurs.
+        """
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 await db.execute("PRAGMA foreign_keys = ON;")
@@ -32,6 +61,17 @@ class GptThreadRepository:
             raise
 
     async def create_thread(self, tg_user_id: int, mode: str, openai_thread_id: str) -> None:
+        """
+        Creates a new thread record in the database.
+
+        Args:
+            tg_user_id (int): Telegram user ID.
+            mode (str): Chat mode.
+            openai_thread_id (str): ID of the created OpenAI thread.
+
+        Raises:
+            aiosqlite.Error: If a database error occurs.
+        """
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 await db.execute("PRAGMA foreign_keys = ON;")
@@ -49,6 +89,17 @@ class GptThreadRepository:
             raise
 
     async def add_message(self, openai_thread_id: str, role: str, content: str) -> None:
+        """
+        Adds a message to the thread's message history.
+
+        Args:
+            openai_thread_id (str): OpenAI thread ID.
+            role (str): Role of the message sender ("user", "assistant", "system").
+            content (str): Message text content.
+
+        Raises:
+            aiosqlite.Error: If a database error occurs.
+        """
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 await db.execute(
@@ -64,6 +115,18 @@ class GptThreadRepository:
             raise
 
     async def get_messages(self, openai_thread_id: str) -> List[dict]:
+        """
+        Retrieves all messages for a given thread, ordered by time.
+
+        Args:
+            openai_thread_id (str): OpenAI thread ID.
+
+        Returns:
+            List[dict]: List of messages as dicts with 'role' and 'content'.
+
+        Raises:
+            aiosqlite.Error: If a database error occurs.
+        """
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 cursor = await db.execute(
@@ -82,6 +145,14 @@ class GptThreadRepository:
             raise
 
     async def clear_thread(self, openai_thread_id: str) -> None:
+        """Deletes all messages associated with a thread.
+
+        Args:
+            openai_thread_id (str): OpenAI thread ID.
+
+        Raises:
+            aiosqlite.Error: If a database error occurs.
+        """
         try:
             async with aiosqlite.connect(self._db_path) as db:
                 await db.execute(

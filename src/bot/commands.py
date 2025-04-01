@@ -14,6 +14,21 @@ logger = get_logger(__name__)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles the /start command and displays the main menu.
+
+    Loads and sends the main welcome message, image, and keyboard with available bot commands.
+    Also resets the user's current session mode.
+
+    Args:
+        update (telegram.Update): The incoming update from the Telegram user.
+        context (telegram.ext.ContextTypes.DEFAULT_TYPE): Context object containing bot and user data.
+
+    Side Effects:
+        - Sends a welcome image and message.
+        - Displays a button-based menu to the user.
+        - Resets context.user_data["mode"] to None.
+    """
     context.user_data["mode"] = None
 
     text = await load_message("main")
@@ -40,6 +55,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles the /random command to fetch a surprising technical fact.
+
+    Ensures the user has a dedicated OpenAI thread for the random mode.
+    Sends a technical trivia fact using the assistant, formats the response, and logs it to the database.
+
+    Args:
+        update (telegram.Update): The incoming update from the Telegram user.
+        context (telegram.ext.ContextTypes.DEFAULT_TYPE): Context object containing bot and user data.
+
+    Raises:
+        openai.OpenAIError: If the assistant fails to respond or run the completion.
+
+    Side Effects:
+        - Sends a formatted fact as an HTML message and image.
+        - Records the user message and assistant reply in the database.
+        - Creates a new OpenAI thread if one doesn't exist.
+        - Resets context.user_data["mode"] to None.
+    """
     context.user_data["mode"] = None
 
     intro = await load_message("random")
@@ -100,6 +134,21 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles the /gpt command and prepares the bot for GPT chat mode.
+
+    Sends the introductory message and image for GPT mode and activates it for the user.
+    This enables the user to start chatting with the short-response assistant.
+
+    Args:
+        update (telegram.Update): The incoming update from the Telegram user.
+        context (telegram.ext.ContextTypes.DEFAULT_TYPE): Context object containing bot and user data.
+
+    Side Effects:
+        - Sends the GPT welcome image and message.
+        - Displays GPT-specific menu buttons.
+        - Sets context.user_data["mode"] to SessionMode.GPT.
+    """
     intro = await load_message("gpt")
     image_bytes = await load_image("gpt")
     menu_commands = await load_menu("gpt")

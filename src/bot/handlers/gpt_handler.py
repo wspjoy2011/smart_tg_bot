@@ -12,6 +12,25 @@ logger = get_logger(__name__)
 
 
 async def gpt_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles user messages in GPT mode.
+
+    This function processes free-form text messages sent by the user when the GPT mode is active.
+    It ensures that each user has a corresponding OpenAI thread and stores the conversation history.
+    The assistant responses concisely, and all messages are saved to the local database.
+
+    Args:
+        update (telegram.Update): The incoming update from the Telegram user.
+        context (telegram.ext.ContextTypes.DEFAULT_TYPE): Context object containing bot and user data.
+
+    Raises:
+        openai.OpenAIError: If the assistant fails to process the message or respond.
+
+    Side Effects:
+        - Sends a message back to the user containing the assistant's reply.
+        - Stores both the user message and assistant reply in the SQLite database.
+        - Creates a new OpenAI thread if one doesn't exist for the current user and mode.
+    """
     mode = context.user_data.get("mode")
     if mode != SessionMode.GPT.value:
         return
