@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.message_sender import send_html_message
+from bot.utils.openai_threads import get_or_create_thread_id
 from db.enums import SessionMode, MessageRole
 from db.repository import GptThreadRepository
 from services import OpenAIClient
@@ -41,11 +42,7 @@ async def gpt_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     openai_client: OpenAIClient = context.bot_data["openai_client"]
     thread_repository: GptThreadRepository = context.bot_data["thread_repository"]
 
-    thread_id = await thread_repository.get_thread_id(tg_user_id, mode)
-    if thread_id is None:
-        thread = await openai_client.create_thread()
-        thread_id = thread.id
-        await thread_repository.create_thread(tg_user_id, mode, thread_id)
+    thread_id = await get_or_create_thread_id(tg_user_id, mode, thread_repository, openai_client)
 
     await thread_repository.add_message(thread_id, role=MessageRole.USER.value, content=user_message)
 

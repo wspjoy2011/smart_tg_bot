@@ -2,11 +2,14 @@ from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    CallbackQueryHandler, MessageHandler, filters
+    CallbackQueryHandler,
+    MessageHandler,
+    filters
 )
 
-from bot.commands import start, random, gpt
-from bot.handlers.gpt_handler import gpt_message_handler
+from bot.commands import start, random, gpt, quiz
+from bot.handlers.message_router import message_router
+from bot.handlers.quiz_handler import handle_quiz_topic_selection
 from db.initializer import DatabaseInitializer
 from db.repository import GptThreadRepository
 from services import OpenAIClient
@@ -17,24 +20,32 @@ def main():
     """
     Starts the Telegram bot application.
 
-    This function initializes the local SQLite database, sets up the OpenAI client,
-    registers command and message handlers for the Telegram bot, and starts polling updates.
+    This function performs the following steps:
+    - Initializes the SQLite database for GPT sessions and messages.
+    - Creates an OpenAI client instance for communication with assistants.
+    - Registers all command, message, and callback query handlers for the bot.
+    - Starts polling Telegram for updates.
 
     Handlers:
-       - /start: Initializes the bot interface.
-       - /random: Triggers the assistant to return a random technical fact.
-       - /gpt: Enables short-response GPT assistant mode.
-       - MessageHandler: Handles free-form text input when in GPT mode.
-       - CallbackQueryHandler: Supports menu button interactions for "start" and "random".
+        - /start: Opens the main menu with available features.
+        - /random: Sends a random technical fact from the assistant.
+        - /gpt: Enters GPT chat mode, allowing users to ask questions.
+        - /quiz: Launches the quiz mode with topic selection.
+
+        - message_router: Routes user text input to GPT or quiz mode depending on session.
+        - CallbackQueryHandler with patterns:
+            - ^start$: Reopens main menu.
+            - ^random$: Triggers another fact.
+            - ^quiz_(python|javascript|docker|web)$: Starts quiz generation for the selected topic.
 
     Environment:
-       Requires the following values from the config:
-           - OpenAI API key and model settings
-           - Telegram bot token
-           - Path to SQLite database
+        Requires configuration values from the `config`:
+            - OpenAI API key and model name
+            - Telegram bot token
+            - SQLite database path
 
     Raises:
-       RuntimeError: If bot fails to start due to misconfiguration or API error.
+        RuntimeError: If the bot fails to initialize or connect to the Telegram API.
     """
     db_initializer = DatabaseInitializer(config.path_to_db)
     db_initializer.create_tables()
@@ -55,11 +66,13 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("random", random))
     app.add_handler(CommandHandler("gpt", gpt))
+    app.add_handler(CommandHandler("quiz", quiz))
 
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), gpt_message_handler))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), message_router))
 
     app.add_handler(CallbackQueryHandler(start, pattern="^start$"))
     app.add_handler(CallbackQueryHandler(random, pattern="^random$"))
+    app.add_handler(CallbackQueryHandler(handle_quiz_topic_selection, pattern="^quiz_(python|javascript|docker|web)$"))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 

@@ -5,6 +5,8 @@ from telegram.ext import ContextTypes
 from bot.keyboards import get_menu_buttons
 from bot.message_sender import send_html_message, send_image_bytes, show_menu
 from bot.resource_loader import load_message, load_image, load_menu
+from bot.utils.decorators import with_clean_keyboard
+from bot.utils.openai_threads import get_or_create_thread_id
 from db.enums import SessionMode, MessageRole
 from db.repository import GptThreadRepository
 from services import OpenAIClient
@@ -13,6 +15,7 @@ from settings import config, get_logger
 logger = get_logger(__name__)
 
 
+@with_clean_keyboard
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /start command and displays the main menu.
@@ -54,6 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@with_clean_keyboard
 async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /random command to fetch a surprising technical fact.
@@ -86,12 +90,7 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_user_id = update.effective_user.id
     mode = SessionMode.RANDOM.value
 
-    thread_id = await thread_repository.get_thread_id(tg_user_id, mode)
-
-    if thread_id is None:
-        thread = await openai_client.create_thread()
-        thread_id = thread.id
-        await thread_repository.create_thread(tg_user_id, mode, thread_id)
+    thread_id = await get_or_create_thread_id(tg_user_id, mode, thread_repository, openai_client)
 
     user_message = "Give me a random interesting technical fact."
 
@@ -133,6 +132,7 @@ async def random(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@with_clean_keyboard
 async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /gpt command and prepares the bot for GPT chat mode.
@@ -163,3 +163,35 @@ async def gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     context.user_data["mode"] = SessionMode.GPT.value
+
+
+async def quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handles the /quiz command and prepares the bot for quiz mode.
+
+    Sends an introductory message and image for the quiz mode and displays a list
+    of quiz topic options. This prepares the user to select a topic and begin the quiz.
+
+    Args:
+        update (telegram.Update): The incoming update from the Telegram user.
+        context (telegram.ext.ContextTypes.DEFAULT_TYPE): Context object containing bot and user data.
+
+    Side Effects:
+        - Sends the quiz welcome image and description.
+        - Displays buttons for selecting quiz topics (e.g. Python, JavaScript, Docker).
+        - Resets context.user_data["mode"] to None until a topic is selected.
+    """
+    intro = await load_message("quiz")
+    image_bytes = await load_image("quiz")
+    menu_commands = await load_menu("quiz")
+
+    await send_image_bytes(update, context, image_bytes)
+    await send_html_message(update, context, intro)
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Choose a quiz topic to begin 🧠",
+        reply_markup=get_menu_buttons(menu_commands)
+    )
+
+    context.user_data["mode"] = SessionMode.QUIZ.value

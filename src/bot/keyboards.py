@@ -1,4 +1,9 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    KeyboardButton
+)
 
 
 def get_menu_buttons(buttons: dict[str, str]) -> InlineKeyboardMarkup:
@@ -17,3 +22,21 @@ def get_menu_buttons(buttons: dict[str, str]) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=label, callback_data=command)]
         for command, label in buttons.items()
     ])
+
+
+def get_quiz_answer_keyboard(options: list[str]) -> ReplyKeyboardMarkup:
+    """
+    Creates a reply keyboard markup for quiz answer options.
+
+    Args:
+        options (list[str]): A list of possible answer options (e.g. "A", "B", "C", "D").
+
+    Returns:
+        ReplyKeyboardMarkup: Telegram markup object with quiz answer buttons.
+    """
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(option)] for option in options],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Choose your answer"
+    )
