@@ -1,0 +1,22 @@
+services:
+  bot:
+    restart: always
+    build: .
+    container_name: smart_tg_bot
+    command: [ "python", "main.py" ]
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=debug
+      - PYTHONPATH=/usr/src/bot
+    volumes:
+      - ./src:/usr/src/bot
+      - ./storage:/usr/src/storage
+      - ./resources:/usr/src/resources
+      - ./logs:/usr/src/logs
+    networks:
+      - bot_network
+
+networks:
+  bot_network:
+    driver: bridge

@@ -1,0 +1,24 @@
+services:
+  bot-multi:
+    restart: always
+    build:
+      context: .
+      dockerfile: ./docker/multistage/Dockerfile
+    container_name: smart_tg_bot_multi
+    command: [ "python", "main.py" ]
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=debug
+      - PYTHONPATH=/usr/src/bot
+    volumes:
+      - ./src:/usr/src/bot
+      - ./storage:/usr/src/storage
+      - ./resources:/usr/src/resources:ro
+      - ./logs:/usr/src/logs
+    networks:
+      - bot_network
+
+networks:
+  bot_network:
+    driver: bridge
