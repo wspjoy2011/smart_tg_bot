@@ -43,7 +43,7 @@ This design allows each Telegram user to have separate conversation threads for 
   Each user gets persistent threads for each mode. All messages are stored in a local **SQLite** database for context tracking and future retrieval, allowing seamless back-and-forth interaction.
 
 - **🛠 Assistant Lifecycle via CLI**  
-  A built-in command-line tool (`assistant_manager.py`) lets you easily create, update, list, or delete OpenAI Assistants. This makes it simple to manage prompt versions or test assistant behavior during development.
+  A built-in command-line tool (`assistant_manager_cli.py`) lets you easily create, update, list, or delete OpenAI Assistants. This makes it simple to manage prompt versions or test assistant behavior during development.
 
 - **♻️ Robust Error Handling & Retry Logic**  
   Includes smart retrying for OpenAI API calls when temporary issues occur (e.g., server errors or parallel run conflicts), along with detailed logging for troubleshooting.
@@ -188,7 +188,9 @@ python assistant_manager_cli.py [OPTIONS]
 | Option | Description |
 |--------|-------------|
 | `-h`, `--help` | Show help message and exit |
-| `-l`, `--list` | List all existing assistants |
+| `-l [N]`, `--list [N]` | List up to `N` assistants (default: 10) |
+| `-s ID`, `--show ID` | Show full details of an assistant by its ID |
+| `--instructions` | Show full assistant instructions when used with `--show` |
 | `-c`, `--create` | Create a new assistant |
 | `-n NAME`, `--name NAME` | Assistant name (required with `--create`) |
 | `-p PROMPT`, `--prompt PROMPT` | Prompt filename from `resources/prompts` (required with `--create` or `--update`) |
@@ -196,22 +198,35 @@ python assistant_manager_cli.py [OPTIONS]
 | `-u ID`, `--update ID` | Update an assistant’s instructions by its ID |
 | `-v`, `--version` | Show CLI tool version |
 
+
 ---
 
 ### 🔁 Examples
 
 ```bash
-# List all assistants
-python assistant_manager_cli.py --list
+## Usage Examples
 
-# Create assistant with name and prompt
-python assistant_manager_cli.py --create -n "History Expert" -p history
+```bash
+# List 10 assistants (default)
+python assistant_manager.py --list
 
-# Update assistant’s instructions
-python assistant_manager_cli.py --update asst_abc123456789 --prompt new_version
+# List 25 assistants
+python assistant_manager.py --list 25
 
-# Delete assistant
-python assistant_manager_cli.py --delete asst_abc123456789
+# Create a new assistant
+python assistant_manager.py --create -n "Quiz Assistant" -p quiz
+
+# Update an assistant with new instructions
+python assistant_manager.py --update asst_abc123 -p updated_quiz
+
+# Delete an assistant
+python assistant_manager.py --delete asst_abc123
+
+# Show assistant details
+python assistant_manager.py --show asst_abc123
+
+# Show assistant details with full prompt
+python assistant_manager.py --show asst_abc123 --instructions
 ```
 
 ---
@@ -257,49 +272,49 @@ You can stop the bot at any time (Ctrl+C), and restart it without losing prior c
 
 ```
 .
-├── README.md                  # Project documentation
+├── README.md                      # Project documentation
 ├── poetry.lock / pyproject.toml  # Poetry dependency and configuration files
-├── .env.sample                # Example environment configuration
+├── .env.sample                    # Example environment configuration
 ├── logs/
-│   └── app.log                # Application log output
+│   └── app.log                    # Application log output
 ├── storage/
-│   └── chat_sessions.db       # SQLite database storing threads and message history
-├── resources/                # Static content used by the bot
-│   ├── images/               # Images shown in bot UI (main, gpt, random, quiz)
-│   ├── menus/                # JSON files defining inline/reply keyboard menus per mode
-│   ├── messages/             # HTML welcome messages for each mode
-│   └── prompts/              # Prompt templates used to instruct OpenAI assistants
-├── src/                      # Main application source code
-│   ├── main.py               # Entry point for launching the Telegram bot
+│   └── chat_sessions.db           # SQLite database storing threads and message history
+├── resources/                    # Static content used by the bot
+│   ├── images/                   # Images shown in bot UI (main, gpt, random, quiz)
+│   ├── menus/                    # JSON files defining inline/reply keyboard menus per mode
+│   ├── messages/                 # HTML welcome messages for each mode
+│   └── prompts/                  # Prompt templates used to instruct OpenAI assistants
+├── src/                          # Main application source code
+│   ├── main.py                   # Entry point for launching the Telegram bot
 │   ├── bot/
-│   │   ├── commands.py       # Command handlers for /start, /gpt, /random, /quiz
-│   │   ├── message_sender.py # Utilities for sending formatted messages and images
-│   │   ├── keyboards.py      # Inline and reply keyboard builders
-│   │   ├── resource_loader.py # Load static message/image/menu content from disk
-│   │   ├── handlers/         # Async message handlers for each mode
+│   │   ├── commands.py           # Command handlers for /start, /gpt, /random, /quiz
+│   │   ├── message_sender.py     # Utilities for sending formatted messages and images
+│   │   ├── keyboards.py          # Inline and reply keyboard builders
+│   │   ├── resource_loader.py    # Load static message/image/menu content from disk
+│   │   ├── handlers/             # Async message handlers for each mode
 │   │   │   ├── gpt_handler.py
 │   │   │   ├── quiz_handler.py
 │   │   │   └── message_router.py  # Routes user messages to appropriate mode handler
-│   │   └── utils/            # Reusable helpers
+│   │   └── utils/                # Reusable helpers
 │   │       ├── decorators.py         # Decorators (e.g. for cleaning up keyboards)
 │   │       ├── openai_threads.py     # Thread creation helper
 │   │       ├── openai_quiz.py        # Retry and validation logic for quiz generation
 │   │       └── quiz.py               # Quiz state handling and display logic
 │   ├── db/
-│   │   ├── enums.py          # Enums for mode and role definitions (SessionMode, MessageRole)
-│   │   ├── initializer.py    # Database schema creation
-│   │   └── repository.py     # DB access layer for threads and message history
+│   │   ├── enums.py              # Enums for mode and role definitions (SessionMode, MessageRole)
+│   │   ├── initializer.py        # Database schema creation
+│   │   └── repository.py         # DB access layer for threads and message history
 │   ├── services/
 │   │   └── chatgpt/
 │   │       ├── client.py                 # Async OpenAI client (threads, messages, runs)
-│   │       └── assistant_manager_cli.py # CLI for assistant lifecycle management
+│   │       ├── assistant_manager.py      # Programmatic assistant manager class
+│   │       └── assistant_manager_cli.py  # CLI for assistant lifecycle management
 │   └── settings/
-│       ├── config.py         # Loads configuration from .env using Pydantic
-│       └── logging_config.py # Logging setup and logger factory
+│       ├── config.py             # Loads configuration from .env using Pydantic
+│       └── logging_config.py     # Logging setup and logger factory
 ```
 
 ---
-
 
 ## Tech Stack
 
