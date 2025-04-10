@@ -2,117 +2,16 @@ import sys
 from pathlib import Path
 
 import argparse
-from openai import OpenAI, OpenAIError
-from openai.types.beta import Assistant
-from typing import Optional, List
+from openai import OpenAIError
+
+from tabulate import tabulate
 
 current_dir = Path(__file__).resolve()
-src_dir = current_dir.parents[1].parent
+src_dir = current_dir.parents[2]
 sys.path.insert(0, str(src_dir))
 
-from settings import config, get_logger
-
-logger = get_logger(__name__)
-
-
-class AssistantManager:
-    """A manager class to handle OpenAI Assistant operations (create, list, update, delete)."""
-
-    def __init__(self, api_key: str, model: str):
-        """
-        Initializes the OpenAI client.
-
-        Args:
-            api_key (str): OpenAI API key.
-            model (str): OpenAI model name.
-        """
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
-
-    def create_assistant(
-        self,
-        name: str,
-        instructions: str,
-        tools: Optional[list] = None
-    ) -> Assistant:
-        """
-        Creates a new OpenAI Assistant.
-
-        Args:
-            name (str): Assistant name.
-            instructions (str): Prompt/instructions text.
-            tools (Optional[list]): Optional list of tools (default is empty list).
-
-        Returns:
-            Assistant: The created Assistant object.
-        """
-        tools = tools or []
-
-        assistant = self.client.beta.assistants.create(
-            name=name,
-            instructions=instructions,
-            tools=tools,
-            model=self.model
-        )
-        return assistant
-
-    def list_assistants(self, limit: int = 10) -> List[Assistant]:
-        """
-        Lists existing assistants.
-
-        Args:
-            limit (int): Number of assistants to return.
-
-        Returns:
-            List[Assistant]: List of assistant objects.
-        """
-        assistants_page = self.client.beta.assistants.list(limit=limit)
-        return assistants_page.data
-
-    def update_assistant(self, assistant_id: str, instructions: str) -> Assistant:
-        """
-        Updates instructions of an existing assistant.
-
-        Args:
-            assistant_id (str): ID of the assistant to update.
-            instructions (str): New instructions text.
-
-        Returns:
-            Assistant: The updated Assistant object.
-
-        Raises:
-            OpenAIError: If updating fails.
-        """
-        try:
-            updated_assistant = self.client.beta.assistants.update(
-                assistant_id=assistant_id,
-                instructions=instructions
-            )
-        except OpenAIError as e:
-            logger.error(f"OpenAI Error: Failed to update assistant {assistant_id}: {e}")
-            raise
-        else:
-            return updated_assistant
-
-    def delete_assistant(self, assistant_id: str) -> bool:
-        """
-        Deletes an assistant by ID.
-
-        Args:
-            assistant_id (str): ID of the assistant to delete.
-
-        Returns:
-            bool: True if successful.
-
-        Raises:
-            OpenAIError: If deletion fails.
-        """
-        try:
-            self.client.beta.assistants.delete(assistant_id)
-            return True
-        except OpenAIError as e:
-            logger.error(f"OpenAI Error: failed to delete assistant {assistant_id}: {e}")
-            raise
+from services.chatgpt.assistant_manager import AssistantManager
+from settings import config
 
 
 def parse_args():
@@ -127,18 +26,37 @@ def parse_args():
         description=(
             "Manage your OpenAI Assistants\n\n"
             "Examples:\n"
-            "  python assistant_manager.py --list\n"
-            "  python assistant_manager.py --create -n \"History Expert\" -p history\n"
-            "  python assistant_manager.py --delete asst_abc123\n"
-            "  python assistant_manager.py --update asst_abc123 -p updated_prompt\n"
+            "  python assistant_manager_cli.py --list\n"
+            "  python assistant_manager_cli.py --list 20\n"
+            "  python assistant_manager_cli.py --create -n \"History Expert\" -p history\n"
+            "  python assistant_manager_cli.py --delete asst_abc123\n"
+            "  python assistant_manager_cli.py --update asst_abc123 -p updated_prompt\n"
+            "  python assistant_manager_cli.py --show asst_abc123\n"
+            "  python assistant_manager_cli.py --show asst_abc123 --instructions\n"
         ),
         formatter_class=argparse.RawTextHelpFormatter
     )
 
     parser.add_argument(
         "-l", "--list",
+        nargs="?",
+        const=10,
+        type=int,
+        metavar="N",
+        help="List existing assistants (default: 10). Optionally specify a number: --list 20"
+    )
+
+    parser.add_argument(
+        "-s", "--show",
+        type=str,
+        metavar="ASSISTANT_ID",
+        help="Show full details of an assistant by its ID"
+    )
+
+    parser.add_argument(
+        "--instructions",
         action="store_true",
-        help="List existing assistants"
+        help="Show full assistant instructions when using --show"
     )
 
     parser.add_argument(
@@ -206,10 +124,21 @@ def main():
     Entry point for the assistant manager CLI tool.
 
     Based on the parsed CLI arguments, performs actions like:
-    - Listing assistants
-    - Creating new assistants from prompt templates
-    - Updating instructions
-    - Deleting assistants
+    - Listing assistants with optional limit (--list [N])
+    - Showing detailed assistant info (--show ASSISTANT_ID)
+      with optional full instructions output (--instructions)
+    - Creating new assistants from prompt templates (--create -n NAME -p PROMPT)
+    - Updating assistant instructions from prompt templates (--update ASSISTANT_ID -p PROMPT)
+    - Deleting assistants by ID (--delete ASSISTANT_ID)
+
+    Usage examples:
+    - List top 10 assistants (default):      python assistant_manager.py --list
+    - List 25 assistants:                    python assistant_manager.py --list 25
+    - Show details of an assistant:          python assistant_manager.py --show asst_abc123
+    - Show assistant + full instructions:    python assistant_manager.py --show asst_abc123 --instructions
+    - Create new assistant from prompt:      python assistant_manager.py --create -n "Quiz" -p quiz
+    - Update assistant with new prompt:      python assistant_manager.py --update asst_abc123 -p quiz_v2
+    - Delete assistant by ID:                python assistant_manager.py --delete asst_abc123
     """
     args = parse_args()
 
@@ -219,15 +148,41 @@ def main():
     )
 
     if args.list:
-        assistants = manager.list_assistants()
+        limit = args.list or 10
+        assistants = manager.list_assistants(limit=limit)
+
         if not assistants:
             print("No assistants found.")
-        for assistant in assistants:
-            print("#" * 50)
-            print(f"\nID: {assistant.id}")
-            print(f"Name: {assistant.name}")
-            print(f"Instructions: {assistant.instructions}")
-            print("#" * 50)
+        else:
+            rows = [(a.id, a.name) for a in assistants]
+            print(tabulate(rows, headers=["ID", "Name"], tablefmt="github"))
+
+
+    elif args.show:
+        try:
+            assistant = manager.get_assistant_details(args.show)
+        except OpenAIError as e:
+            print(f"Failed to retrieve assistant: {e}")
+            return
+
+        rows = [
+            ["ID", assistant.id],
+            ["Name", assistant.name or "—"],
+            ["Model", assistant.model],
+            ["Created At", assistant.created_at],
+            ["Description", assistant.description or "—"],
+            ["Instructions", (assistant.instructions[:120] + "...") if assistant.instructions and len(
+                assistant.instructions) > 120 else assistant.instructions or "—"],
+            ["Tools", ", ".join(tool.type for tool in assistant.tools) if assistant.tools else "None"],
+            ["Temperature", str(assistant.temperature) if assistant.temperature is not None else "Default"],
+            ["Top P", str(assistant.top_p) if assistant.top_p is not None else "Default"],
+        ]
+
+        print(tabulate(rows, headers=["Field", "Value"], tablefmt="fancy_grid"))
+
+        if args.instructions and assistant.instructions:
+            print("\nFull Instructions:\n")
+            print(assistant.instructions)
 
     elif args.create:
         if not args.name or not args.prompt:
